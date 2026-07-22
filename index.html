@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#090b20" />
+    <meta name="description" content="Neon Shift — логическая игра о движении блоков в киберпространстве." />
+    <title>Neon Shift — Block Escape</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient" aria-hidden="true">
+      <div class="orb orb--cyan"></div>
+      <div class="orb orb--violet"></div>
+      <div class="cyber-grid"></div>
+    </div>
+
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Neon Shift — на главный экран">
+          <span class="brand__mark"><i></i><i></i><i></i></span>
+          <span>
+            <strong>NEON<span>SHIFT</span></strong>
+            <small>BLOCK ESCAPE PROTOCOL</small>
+          </span>
+        </a>
+
+        <div class="status-cluster" aria-label="Состояние игры">
+          <div class="status-chip">
+            <span>СЕКТОР</span>
+            <strong id="levelValue">01</strong>
+          </div>
+          <div class="status-chip">
+            <span>ХОДЫ</span>
+            <strong id="movesValue">00</strong>
+          </div>
+          <button class="icon-button" id="soundButton" type="button" aria-label="Выключить звук" title="Звук">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6h4l5 4V5L9 9H5Zm12.5 3a4.5 4.5 0 0 0-2.2-3.87v7.74A4.5 4.5 0 0 0 17.5 12Z"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="game-layout">
+        <aside class="briefing glass-panel">
+          <span class="eyebrow"><i></i> ТЕКУЩИЙ ПРОТОКОЛ</span>
+          <h1>Освободи<br /><em>ядро.</em></h1>
+          <p>Расчисти путь и доведи светящийся блок до портала справа.</p>
+
+          <div class="objective-card">
+            <div class="objective-card__icon"><span></span></div>
+            <div>
+              <small>ЦЕЛЕВОЙ ОБЪЕКТ</small>
+              <strong>CYAN CORE</strong>
+            </div>
+            <i class="objective-card__arrow">→</i>
+          </div>
+
+          <div class="rules">
+            <div><span>01</span><p>Тащи блоки<br />вдоль их оси</p></div>
+            <div><span>02</span><p>Не пересекай<br />другие блоки</p></div>
+            <div><span>03</span><p>Выведи ядро<br />через портал</p></div>
+          </div>
+
+          <div class="difficulty-line">
+            <span>СЛОЖНОСТЬ</span>
+            <strong id="difficultyValue">РАЗМИНКА</strong>
+          </div>
+        </aside>
+
+        <section class="play-zone" aria-label="Игровое поле">
+          <div class="board-caption">
+            <span><i class="live-dot"></i> GRID ONLINE</span>
+            <span id="seedValue">SEED // 000000</span>
+          </div>
+
+          <div class="board-frame" id="boardFrame">
+            <div class="frame-corner frame-corner--tl"></div>
+            <div class="frame-corner frame-corner--tr"></div>
+            <div class="frame-corner frame-corner--bl"></div>
+            <div class="frame-corner frame-corner--br"></div>
+            <canvas id="gameCanvas" aria-label="Поле шесть на шесть с подвижными блоками" tabindex="0"></canvas>
+            <div class="exit-label" aria-hidden="true"><span>EXIT</span><i></i></div>
+            <div class="scan-line" aria-hidden="true"></div>
+            <div class="loading-layer" id="loadingLayer">
+              <span class="loader-ring"></span>
+              <strong>СИНТЕЗ СЕКТОРА</strong>
+              <small>ПРОВЕРКА РЕШЕНИЯ...</small>
+            </div>
+          </div>
+
+          <div class="mobile-tip"><span>↔</span> Блоки двигаются только по своей оси</div>
+        </section>
+
+        <aside class="controls-panel">
+          <div class="glass-panel tool-card">
+            <span class="eyebrow"><i></i> УПРАВЛЕНИЕ</span>
+            <div class="button-grid">
+              <button class="control-button" id="undoButton" type="button">
+                <span class="control-button__icon">↶</span><span><strong>ОТМЕНИТЬ</strong><small>ПОСЛЕДНИЙ ХОД</small></span>
+              </button>
+              <button class="control-button" id="restartButton" type="button">
+                <span class="control-button__icon">↻</span><span><strong>ЗАНОВО</strong><small>СБРОС СЕКТОРА</small></span>
+              </button>
+              <button class="control-button control-button--hint" id="hintButton" type="button">
+                <span class="control-button__icon">✦</span><span><strong>ИМПУЛЬС</strong><small>ПОДСКАЗКА</small></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="glass-panel telemetry">
+            <div class="telemetry__heading"><span>ТЕЛЕМЕТРИЯ</span><i></i></div>
+            <div class="telemetry__row"><span>ЛУЧШИЙ РЕЗУЛЬТАТ</span><strong id="bestValue">—</strong></div>
+            <div class="telemetry__row"><span>РАСЧЁТНЫЙ МИНИМУМ</span><strong id="parValue">—</strong></div>
+            <div class="signal-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+
+          <button class="skip-button" id="skipButton" type="button">СГЕНЕРИРОВАТЬ ДРУГОЙ СЕКТОР <span>›</span></button>
+        </aside>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <div class="victory" id="victoryDialog" role="dialog" aria-modal="true" aria-labelledby="victoryTitle" hidden>
+      <div class="victory__backdrop"></div>
+      <div class="victory__card glass-panel">
+        <div class="victory__glyph"><span></span></div>
+        <span class="eyebrow"><i></i> ДОСТУП ПОЛУЧЕН</span>
+        <h2 id="victoryTitle">Сектор<br /><em>пройден.</em></h2>
+        <p>Ядро успешно достигло выходного портала.</p>
+        <div class="victory__stats">
+          <div><span>ХОДЫ</span><strong id="victoryMoves">0</strong></div>
+          <div><span>МИНИМУМ</span><strong id="victoryPar">—</strong></div>
+        </div>
+        <button class="next-button" id="nextButton" type="button">СЛЕДУЮЩИЙ СЕКТОР <span>→</span></button>
+      </div>
+    </div>
+
+    <script src="engine.js"></script>
+    <script src="game.js"></script>
+  </body>
+</html>
