@@ -1,5 +1,5 @@
-const BOARD_SIZE = 6;
-const GOAL_ROW = 2;
+const BOARD_SIZE = 7;
+const GOAL_ROW = 3;
 
 function cloneLevel(level) {
   return {
@@ -45,9 +45,9 @@ function buildGrid(level, positions = positionsFromLevel(level), ignoredIndex = 
   return grid;
 }
 
-function movementRange(level, positions, blockIndex) {
+function movementRange(level, positions, blockIndex, occupiedGrid = null) {
   const block = level.blocks[blockIndex];
-  const grid = buildGrid(level, positions, blockIndex);
+  const grid = occupiedGrid || buildGrid(level, positions);
   let min = 0;
   let max = BOARD_SIZE - block.len;
 
@@ -106,10 +106,11 @@ function solveLevel(level, options = {}) {
   for (let cursor = 0; cursor < states.length && states.length < maxNodes; cursor += 1) {
     const positions = states[cursor];
     const nextDepth = depths[cursor] + 1;
+    const occupiedGrid = buildGrid(level, positions);
 
     for (let blockIndex = 0; blockIndex < level.blocks.length; blockIndex += 1) {
       const current = positions[blockIndex];
-      const range = movementRange(level, positions, blockIndex);
+      const range = movementRange(level, positions, blockIndex, occupiedGrid);
       for (let destination = range.min; destination <= range.max; destination += 1) {
         if (destination === current) continue;
         const next = positions.slice();
@@ -212,20 +213,21 @@ function createCandidate(random, blockCount) {
 
 const FALLBACK_LEVELS = [
   [
-    { id: "core", axis: "h", len: 2, x: 0, y: 2, goal: true, hue: 178 },
-    { id: "lock", axis: "v", len: 2, x: 2, y: 1, hue: 306 },
-    { id: "b2", axis: "h", len: 2, x: 0, y: 0, hue: 220 },
-    { id: "b3", axis: "v", len: 2, x: 5, y: 0, hue: 248 },
-    { id: "b4", axis: "h", len: 3, x: 1, y: 4, hue: 204 },
-    { id: "b5", axis: "v", len: 2, x: 0, y: 4, hue: 235 },
+    { id: "core", axis: "h", len: 2, x: 0, y: 3, goal: true, hue: 178 },
+    { id: "lock", axis: "v", len: 2, x: 2, y: 2, hue: 306 },
+    { id: "b2", axis: "h", len: 3, x: 0, y: 0, hue: 220 },
+    { id: "b3", axis: "v", len: 2, x: 6, y: 0, hue: 248 },
+    { id: "b4", axis: "h", len: 3, x: 1, y: 5, hue: 204 },
+    { id: "b5", axis: "v", len: 2, x: 0, y: 5, hue: 235 },
+    { id: "b6", axis: "h", len: 2, x: 4, y: 6, hue: 255 },
   ],
   [
-    { id: "core", axis: "h", len: 2, x: 0, y: 2, goal: true, hue: 178 },
-    { id: "lock", axis: "v", len: 3, x: 2, y: 0, hue: 306 },
-    { id: "b2", axis: "h", len: 3, x: 0, y: 3, hue: 220 },
-    { id: "b3", axis: "v", len: 2, x: 5, y: 0, hue: 248 },
-    { id: "b4", axis: "h", len: 2, x: 3, y: 4, hue: 204 },
-    { id: "b5", axis: "v", len: 2, x: 0, y: 4, hue: 235 },
+    { id: "core", axis: "h", len: 2, x: 0, y: 3, goal: true, hue: 178 },
+    { id: "lock", axis: "v", len: 3, x: 2, y: 1, hue: 306 },
+    { id: "b2", axis: "h", len: 3, x: 0, y: 4, hue: 220 },
+    { id: "b3", axis: "v", len: 3, x: 6, y: 0, hue: 248 },
+    { id: "b4", axis: "h", len: 2, x: 3, y: 5, hue: 204 },
+    { id: "b5", axis: "v", len: 2, x: 0, y: 5, hue: 235 },
   ],
 ];
 
@@ -242,18 +244,19 @@ function fallbackLevel(levelNumber) {
 
 function generateLevel(levelNumber = 1, customSeed = 0) {
   const normalizedLevel = Math.max(1, Math.floor(levelNumber));
-  const seed = (normalizedLevel * 0x9e3779b1 + customSeed * 0x85ebca6b + 0xc0decafe) >>> 0;
+  const seed = (normalizedLevel * 0x9e3779b1 + customSeed * 0x85ebca6b + 0x7c0decaf) >>> 0;
   const random = mulberry32(seed);
   const tier = Math.min(2, Math.floor((normalizedLevel - 1) / 5));
-  const blockCount = 7 + tier * 2 + integer(random, 0, 1);
-  const targetDepth = [2, 4, 6][tier] + Math.min(2, (normalizedLevel - 1) % 5);
-  const attempts = [35, 55, 80][tier];
+  const blockCount = 9 + tier * 2 + integer(random, 0, 1);
+  const depthStep = tier === 2 ? Math.min(1, (normalizedLevel - 1) % 5) : Math.min(2, (normalizedLevel - 1) % 5);
+  const targetDepth = [2, 4, 6][tier] + depthStep;
+  const attempts = [30, 40, 30][tier];
   let best = null;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const candidate = createCandidate(random, blockCount);
     if (!candidate) continue;
-    const result = solveLevel(candidate, { maxNodes: tier === 2 ? 45000 : 25000, includePath: false });
+    const result = solveLevel(candidate, { maxNodes: tier === 2 ? 25000 : 20000, includePath: false });
     if (!result.solved || result.depth < 2) continue;
 
     if (!best || result.depth > best.solution.depth) best = { candidate, solution: result };

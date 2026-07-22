@@ -3,6 +3,7 @@
 
   const {
     BOARD_SIZE,
+    GOAL_ROW,
     applyPositions,
     generateLevel,
     isSolved,
@@ -184,7 +185,7 @@
       context.beginPath(); context.moveTo(x, y + position); context.lineTo(x + board, y + position); context.stroke();
     }
 
-    const portalY = y + cell * 2;
+    const portalY = y + cell * GOAL_ROW;
     const pulse = .48 + Math.sin(time / 340) * .14;
     const portalGlow = context.createLinearGradient(x + board - cell * 1.2, 0, x + board, 0);
     portalGlow.addColorStop(0, "rgba(101,255,226,0)");
@@ -515,7 +516,6 @@
   }
 
   function animationLoop(time) {
-    resizeCanvas();
     if (state.hint && time > state.hint.expires) state.hint = null;
     drawBoard(time);
     window.requestAnimationFrame(animationLoop);
@@ -537,6 +537,7 @@
 
   soundButton.classList.toggle("is-muted", state.muted);
   soundButton.setAttribute("aria-label", state.muted ? "Включить звук" : "Выключить звук");
+  resizeCanvas();
   refreshHud();
   loadLevel(state.levelNumber, 0);
   window.requestAnimationFrame(animationLoop);
