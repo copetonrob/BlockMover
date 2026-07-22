@@ -24,6 +24,7 @@
   const undoButton = document.querySelector("#undoButton");
   const restartButton = document.querySelector("#restartButton");
   const hintButton = document.querySelector("#hintButton");
+  const resetProgressButton = document.querySelector("#resetProgressButton");
   const skipButton = document.querySelector("#skipButton");
   const soundButton = document.querySelector("#soundButton");
   const nextButton = document.querySelector("#nextButton");
@@ -44,6 +45,16 @@
     set(key, value) {
       try { localStorage.setItem(`neon-shift:${key}`, JSON.stringify(value)); } catch (_) { /* private mode */ }
     },
+    clearCampaign() {
+      try {
+        for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+          const key = localStorage.key(index);
+          if (key === "neon-shift:progress" || key === "neon-shift:level" || key?.startsWith("neon-shift:best:")) {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (_) { /* private mode */ }
+    },
   };
 
   const levelPack = window.NEON_SHIFT_LEVEL_PACK;
@@ -55,12 +66,16 @@
   const savedProgress = storage.get("progress", null);
   const legacyLevel = Number(storage.get("level", 1)) || 1;
   const savedLevel = savedProgress?.packVersion === levelPack.version ? Number(savedProgress.currentLevel) : legacyLevel;
-  const initialLevel = Math.min(TOTAL_LEVELS, Math.max(1, savedLevel || 1));
+  const savedHighestCompleted = savedProgress?.packVersion === levelPack.version ? Number(savedProgress.highestCompleted) || 0 : 0;
+  const expandedPackLevel = savedLevel === 1 && savedHighestCompleted > 0 && savedHighestCompleted < TOTAL_LEVELS
+    ? savedHighestCompleted + 1
+    : savedLevel;
+  const initialLevel = Math.min(TOTAL_LEVELS, Math.max(1, expandedPackLevel || 1));
 
   const state = {
     level: null,
     levelNumber: initialLevel,
-    highestCompleted: savedProgress?.packVersion === levelPack.version ? Number(savedProgress.highestCompleted) || 0 : 0,
+    highestCompleted: savedHighestCompleted,
     positions: [],
     initialPositions: [],
     history: [],
@@ -132,6 +147,7 @@
     undoButton.disabled = !state.history.length || state.loading || state.won;
     restartButton.disabled = state.loading || !state.level;
     hintButton.disabled = state.loading || !state.level || state.won;
+    resetProgressButton.disabled = state.loading;
     skipButton.disabled = state.loading;
   }
 
@@ -458,6 +474,16 @@
     showToast("СЕКТОР ВОССТАНОВЛЕН");
   }
 
+  function resetProgress() {
+    const confirmed = window.confirm("Сбросить прохождение и все лучшие результаты? Игра начнётся с первого сектора.");
+    if (!confirmed) return;
+    storage.clearCampaign();
+    state.highestCompleted = 0;
+    loadLevel(1);
+    showToast("ПРОГРЕСС СБРОШЕН — ДОБРО ПОЖАЛОВАТЬ В СЕКТОР 01", 3200);
+    playSound("undo");
+  }
+
   function requestHint() {
     if (state.loading || state.won || !state.level) return;
     hintButton.disabled = true;
@@ -576,6 +602,7 @@
   undoButton.addEventListener("click", undoMove);
   restartButton.addEventListener("click", restartLevel);
   hintButton.addEventListener("click", requestHint);
+  resetProgressButton.addEventListener("click", resetProgress);
   skipButton.addEventListener("click", () => loadLevel(followingLevel()));
   soundButton.addEventListener("click", toggleSound);
   nextButton.addEventListener("click", () => loadLevel(followingLevel()));

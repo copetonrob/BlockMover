@@ -5,7 +5,8 @@ global.window = global;
 require(path.join(__dirname, "..", "engine.js"));
 
 const { BOARD_SIZE, GOAL_ROW, generateLevel, solveLevel } = global.BlockMoverEngine;
-const LEVEL_COUNT = 50;
+const requestedCount = Number(process.argv[2]);
+const LEVEL_COUNT = Number.isInteger(requestedCount) && requestedCount > 0 ? requestedCount : 50;
 const levels = [];
 
 for (let number = 1; number <= LEVEL_COUNT; number += 1) {
