@@ -5,7 +5,6 @@
     BOARD_SIZE,
     GOAL_ROW,
     applyPositions,
-    generateLevel,
     isSolved,
     movementRange,
     positionsFromLevel,
@@ -47,10 +46,21 @@
     },
   };
 
+  const levelPack = window.NEON_SHIFT_LEVEL_PACK;
+  if (!levelPack || levelPack.boardSize !== BOARD_SIZE || levelPack.goalRow !== GOAL_ROW || !levelPack.levels?.length) {
+    throw new Error("Neon Shift level pack is missing or incompatible.");
+  }
+
+  const TOTAL_LEVELS = levelPack.levels.length;
+  const savedProgress = storage.get("progress", null);
+  const legacyLevel = Number(storage.get("level", 1)) || 1;
+  const savedLevel = savedProgress?.packVersion === levelPack.version ? Number(savedProgress.currentLevel) : legacyLevel;
+  const initialLevel = Math.min(TOTAL_LEVELS, Math.max(1, savedLevel || 1));
+
   const state = {
     level: null,
-    levelNumber: Math.max(1, Number(storage.get("level", 1)) || 1),
-    variation: 0,
+    levelNumber: initialLevel,
+    highestCompleted: savedProgress?.packVersion === levelPack.version ? Number(savedProgress.highestCompleted) || 0 : 0,
     positions: [],
     initialPositions: [],
     history: [],
@@ -73,13 +83,46 @@
     return String(value).padStart(2, "0");
   }
 
+  function followingLevel(levelNumber = state.levelNumber) {
+    return levelNumber >= TOTAL_LEVELS ? 1 : levelNumber + 1;
+  }
+
+  function saveProgress(currentLevel = state.levelNumber) {
+    storage.set("progress", {
+      packVersion: levelPack.version,
+      currentLevel,
+      highestCompleted: state.highestCompleted,
+    });
+    storage.set("level", currentLevel);
+  }
+
+  function levelFromPack(levelNumber) {
+    const source = levelPack.levels[levelNumber - 1];
+    return {
+      size: levelPack.boardSize,
+      number: source.number,
+      seed: source.seed,
+      difficulty: source.difficulty,
+      par: source.par,
+      blocks: source.blocks.map(([axis, len, x, y, goal, hue], index) => ({
+        id: goal ? "core" : `b${index}`,
+        axis,
+        len,
+        x,
+        y,
+        goal: Boolean(goal),
+        hue,
+      })),
+    };
+  }
+
   function currentBest() {
     if (!state.level) return null;
     return storage.get(`best:${state.level.seed}`, null);
   }
 
   function refreshHud() {
-    levelValue.textContent = padded(state.levelNumber);
+    levelValue.textContent = `${padded(state.levelNumber)}/${TOTAL_LEVELS}`;
     movesValue.textContent = padded(state.moveCount);
     difficultyValue.textContent = state.level?.difficulty || "—";
     seedValue.textContent = state.level ? `SEED // ${state.level.seed.toString(16).toUpperCase().slice(-6).padStart(6, "0")}` : "SEED // ------";
@@ -105,21 +148,23 @@
     refreshHud();
   }
 
-  function loadLevel(levelNumber, variation = 0) {
+  function loadLevel(levelNumber) {
     const token = ++state.generationToken;
-    state.levelNumber = Math.max(1, levelNumber);
-    state.variation = variation;
+    state.levelNumber = Math.min(TOTAL_LEVELS, Math.max(1, Math.floor(levelNumber)));
     state.dragging = null;
     state.selected = -1;
     state.hint = null;
     state.won = false;
     victoryDialog.hidden = true;
     setLoading(true);
-    levelValue.textContent = padded(state.levelNumber);
+    levelValue.textContent = `${padded(state.levelNumber)}/${TOTAL_LEVELS}`;
+    nextButton.innerHTML = state.levelNumber === TOTAL_LEVELS
+      ? "НАЧАТЬ НОВЫЙ ЦИКЛ <span>→</span>"
+      : "СЛЕДУЮЩИЙ СЕКТОР <span>→</span>";
 
     window.setTimeout(() => {
       if (token !== state.generationToken) return;
-      const level = generateLevel(state.levelNumber, state.variation);
+      const level = levelFromPack(state.levelNumber);
       if (token !== state.generationToken) return;
       state.level = level;
       state.positions = positionsFromLevel(level);
@@ -127,7 +172,7 @@
       state.history = [];
       state.moveCount = 0;
       state.particles = [];
-      storage.set("level", state.levelNumber);
+      saveProgress(state.levelNumber);
       setLoading(false);
       refreshHud();
       playSound("load");
@@ -439,6 +484,8 @@
     state.won = true;
     const best = currentBest();
     if (!best || state.moveCount < best) storage.set(`best:${state.level.seed}`, state.moveCount);
+    state.highestCompleted = Math.max(state.highestCompleted, state.levelNumber);
+    saveProgress(followingLevel());
     refreshHud();
     createVictoryParticles();
     playSound("win");
@@ -529,9 +576,9 @@
   undoButton.addEventListener("click", undoMove);
   restartButton.addEventListener("click", restartLevel);
   hintButton.addEventListener("click", requestHint);
-  skipButton.addEventListener("click", () => loadLevel(state.levelNumber, state.variation + 1));
+  skipButton.addEventListener("click", () => loadLevel(followingLevel()));
   soundButton.addEventListener("click", toggleSound);
-  nextButton.addEventListener("click", () => loadLevel(state.levelNumber + 1, 0));
+  nextButton.addEventListener("click", () => loadLevel(followingLevel()));
   document.addEventListener("visibilitychange", () => { if (document.hidden && state.dragging) state.dragging = null; });
   new ResizeObserver(resizeCanvas).observe(boardFrame);
 
@@ -539,6 +586,6 @@
   soundButton.setAttribute("aria-label", state.muted ? "Включить звук" : "Выключить звук");
   resizeCanvas();
   refreshHud();
-  loadLevel(state.levelNumber, 0);
+  loadLevel(state.levelNumber);
   window.requestAnimationFrame(animationLoop);
 })();
